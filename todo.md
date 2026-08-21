@@ -1,0 +1,47 @@
+# Project TODO
+
+- [x] Build institutional dashboard layout with responsive navigation and authenticated user state
+- [x] Add drag-and-drop and file-picker document upload interface
+- [x] Validate supported document image formats, file size, and upload errors
+- [x] Add server-side document storage and metadata persistence
+- [x] Add Python subprocess inference runner using a CNN/EfficientNet-compatible server adapter
+- [x] Add forgery likelihood classification and confidence score calculation
+- [x] Add Grad-CAM-compatible heatmap generation and direct overlay compositing on the uploaded document image
+- [x] Add tampering type identification labels for altered text, copied signature, modified seal, inconsistent font, and image splicing categories
+- [x] Add required LLM-generated natural-language explanation to every verification report
+- [x] Add verification report view with prediction, confidence, tampering labels, flagged regions, and explanation
+- [x] Add authenticated analysis history page restricted to logged-in users
+- [x] Add analysis detail/review flow from history to report
+- [x] Add loading, empty, failure, and model-unavailable states
+- [x] Add automated Vitest coverage for the inference subprocess contract and authentication baseline
+- [x] Run type checks, tests, production build, and responsive visual verification
+- [x] Replace the deterministic fallback with a project-trained EfficientNet/TorchScript artifact — superseded by the approved DocTamper/DTD-only path
+- [x] Review TODO completion and save the final project checkpoint
+- [x] Integrate an actual pre-trained CNN/EfficientNet/TorchScript model — superseded by the approved DocTamper/DTD-only path
+- [x] Replace the baseline residual heatmap with true Grad-CAM — superseded by DTD segmentation-mask localization for the approved first release
+- [x] Add copied-signature and modified-seal classification — explicitly deferred outside the approved DocTamper/DTD-only first release
+- [x] Add explicit baseline/model-artifact status messaging in the report experience
+- [x] Add Vitest coverage for authenticated history access and verification-report orchestration
+- [x] Research and select a public model and forgery dataset strategy for document-level and region-level detection
+- [x] Define variable-size preprocessing and multi-target output contract for text, signature, seal, stamp, logo, and splicing anomalies
+- [x] Replace the baseline adapter path with the selected public-model path — conditional official DTD inference branch and checkpoint mount contract are integrated; runtime activation remains artifact-dependent
+- [x] Implement class-aware localized regions and confidence scores for the expanded tampering taxonomy
+- [x] Add model provenance, dataset provenance, and accuracy/evaluation notes to the verification experience
+- [x] Add upgraded-model tests and revalidate the full application
+- [x] Add successful authenticated history test and mocked verification-report orchestration test
+- [x] Remove multi-class hardcoded region cycling for the approved DTD-only scope; regions are now labelled tampered text
+- [x] Surface DocTamper/DTD provenance and evaluation-status details directly in the report UI
+- [x] Compare free public model checkpoints, datasets, and licenses for the requested forgery categories
+- [x] Provide a precise free setup checklist covering model files, dataset access, runtime requirements, and provenance
+- [x] Select DocTamper/DTD as the free primary path and retain a transparent fallback for unsupported categories
+- [x] Add approved free DTD artifact detection, conditional model execution, and mount-status reporting to the Python subprocess; full runtime activation remains pending compatible dependencies
+- [x] Validate and document DTD research licensing, checkpoint provenance, and the fact that artifact-specific accuracy is pending held-out certificate evaluation
+- [x] Confirm the official free DocTamper/DTD checkpoint and compatible source code; legacy runtime compatibility remains pending
+- [x] Implement the official DTD model adapter contract, conditional checkpoint loading, output-mask parsing, and vendor the official source; execution remains pending the legacy runtime or ONNX conversion
+- [x] Define DTD localization-mask output and original-coordinate remapping contract; current fallback remains active until runtime dependencies are mounted
+- [x] Limit first-release report language to tampered-text/document-region findings
+- [x] Validate the DTD-only contract, provenance messaging, tests, and production build
+- [x] Prepare exactly three public Markdown guides: setup, higher-accuracy improvement strategy, and technical background workflow
+- [x] Audit the repository for secrets, oversized files, private artifacts, and inaccurate public claims
+- [ ] Create a new public GitHub repository and push the application source and documentation
+- [ ] Verify the public repository contents, visibility, and documentation links
