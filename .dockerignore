@@ -1,0 +1,9 @@
+node_modules
+dist
+training_data
+models/ml
+samples
+.git
+.env
+.env.local
+*.log

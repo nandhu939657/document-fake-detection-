@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: veritylens
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # PyTorch + a loaded llama3.2:3b model together need real headroom (roughly
+    # 4GB+ RAM). "starter"-tier RAM will likely OOM -- pick at least Render's
+    # ~4GB plan (name/pricing to confirm on Render's current plan list) before
+    # deploying, not this placeholder.
+    plan: standard
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false

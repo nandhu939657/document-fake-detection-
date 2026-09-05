@@ -9,9 +9,10 @@ import { storagePut } from "./storage";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
+import { resolvePythonCommand } from "./pythonRuntime";
 
 const execAnalysis = promisify((input: string, callback: (error: Error | null, result?: string) => void) => {
-  const child = spawn("python3", ["scripts/infer_document.py"], { cwd: process.cwd() });
+  const child = spawn(resolvePythonCommand(), ["scripts/infer_document.py"], { cwd: process.cwd() });
   let output = "";
   let errorOutput = "";
   child.stdout.on("data", chunk => { output += chunk.toString(); });
@@ -30,6 +31,29 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    devLogin: publicProcedure
+      .input(z.object({ email: z.string().email(), name: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const openId = `user_${input.email.replace(/[^a-zA-Z0-9]/g, "_")}`;
+        const name = input.name || input.email.split("@")[0];
+        const { upsertUser, getUserByOpenId } = await import("./db");
+        const { sdk } = await import("./_core/sdk");
+        
+        await upsertUser({
+          openId,
+          name,
+          email: input.email,
+          loginMethod: "local",
+          lastSignedIn: new Date(),
+        });
+        
+        const token = await sdk.createSessionToken(openId, { name });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        
+        const user = await getUserByOpenId(openId);
+        return { user, token };
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

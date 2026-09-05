@@ -1,0 +1,5 @@
+Pillow
+numpy
+torch==2.14.0+cpu
+torchvision==0.29.0+cpu
+segmentation-models-pytorch==0.2.1
