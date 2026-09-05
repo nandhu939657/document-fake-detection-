@@ -3,11 +3,14 @@ services:
     name: veritylens
     runtime: docker
     dockerfilePath: ./Dockerfile
-    # PyTorch + a loaded llama3.2:3b model together need real headroom (roughly
-    # 4GB+ RAM). "starter"-tier RAM will likely OOM -- pick at least Render's
-    # ~4GB plan (name/pricing to confirm on Render's current plan list) before
-    # deploying, not this placeholder.
-    plan: standard
+    # Confirmed via Render's docs (render.com/docs/compute-plans): free and
+    # starter tiers cap at 512MB RAM, and "standard" is only 2GB -- a loaded
+    # llama3.2:3b model alone typically needs ~3-4GB resident, plus overhead
+    # for the Python/PyTorch subprocess. "pro" (2 CPU / 4GB RAM) is the
+    # minimum tier likely to actually run this without OOM-crashing; even
+    # that may be tight under concurrent requests. Check render.com/pricing
+    # for the current monthly cost of this tier before deploying.
+    plan: pro
     healthCheckPath: /
     envVars:
       - key: NODE_ENV

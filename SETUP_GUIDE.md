@@ -1,71 +1,179 @@
 # VerityLens Setup Guide
 
-VerityLens is an institutional document-screening web application. The first release focuses on **tampered-text and document-region analysis** using the DocTamper/DTD research path. It accepts PNG, JPEG, and WEBP images up to 8 MB, stores analysis metadata for authenticated users, overlays suspicious regions on the source image, and generates a readable verification explanation.
+VerityLens is a document-screening web app: upload an image, a locally-run
+U-Net model screens it for signs of tampered text, and a locally-run LLM
+writes a plain-language explanation. No third-party AI API is called at
+runtime -- everything runs on your own machine.
 
-> This project is a visual screening aid. It does not verify a certificate against an issuing authority and should not be treated as legal or institutional proof of authenticity.
+> This is a research prototype, not a certified fraud detector. It only
+> screens for edited/altered text regions, does not check signatures, seals,
+> or stamps, and should not be treated as legal or institutional proof of
+> authenticity.
 
-## Requirements
+Every step below is a command block you can paste as-is into your terminal.
+Run them in order, top to bottom, from the project's root folder unless
+told otherwise. Pick the **Windows (PowerShell)** or **macOS/Linux (bash)**
+block that matches your machine wherever they differ.
 
-Install Node.js 22 or later, pnpm 10, Python 3, and a Python Pillow installation. The project uses a React/Vite frontend, an Express/tRPC backend, MySQL-compatible persistence, S3-compatible storage, and Manus OAuth provided by the managed environment.
+## 0. Prerequisites (install these first, not paste-able)
+
+- **Node.js 22+** -- https://nodejs.org
+- **Python 3.10+** -- https://python.org (make sure "Add to PATH" is checked on Windows)
+- **Ollama** -- https://ollama.com/download (for the real, local AI-written
+  explanation; the app still runs without it, using a canned template instead)
+- **Git**
+
+Verify they're all on your PATH:
 
 ```bash
-pnpm install
-sudo pip3 install pillow
+node --version
+python --version
+git --version
+ollama --version
 ```
 
-## Environment
+## 1. Clone the repo
 
-The managed project supplies the database, authentication, storage, and built-in LLM environment variables. Do not commit a `.env` file or copy secret values into source code. For a local deployment, configure the equivalent variables expected by `server/_core/env.ts`, including `DATABASE_URL`, OAuth values, storage values, and the built-in LLM API values.
+```bash
+git clone https://github.com/nandhuitarang-ops/fake-documentry-.git
+cd fake-documentry-
+```
 
-## Database and development server
+## 2. Install pnpm and Node dependencies
 
-Generate the Drizzle migration and apply it through the project management workflow. Then start the application:
+```bash
+npm install -g pnpm
+pnpm install
+```
+
+## 3. Create the Python ML virtual environment
+
+**Windows (PowerShell):**
+```powershell
+python -m venv models\ml\.venv
+models\ml\.venv\Scripts\python.exe -m pip install --upgrade pip
+models\ml\.venv\Scripts\python.exe -m pip install -r scripts\requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+**macOS/Linux (bash):**
+```bash
+python3 -m venv models/ml/.venv
+models/ml/.venv/bin/python -m pip install --upgrade pip
+models/ml/.venv/bin/python -m pip install -r scripts/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+This installs directly into the venv without needing to "activate" it first
+-- `server/pythonRuntime.ts` finds and uses `models/ml/.venv` automatically.
+This step downloads PyTorch (~150MB); if you skip it, the app still runs but
+every analysis falls back to a non-ML visual heuristic instead of the real
+trained model.
+
+## 4. Pull the local LLM model
+
+Make sure the Ollama app/service is running, then:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+This is a ~2GB download. The server talks to it at `http://127.0.0.1:11434`
+by default.
+
+## 5. Create your `.env` file
+
+You need a free [Supabase](https://supabase.com) project for the database
+and auth keys. Create one, then go to **Project Settings > API** and
+**Project Settings > Database > Connection string** to get the values below.
+
+Generate a random `JWT_SECRET` with this one-liner (works on both platforms
+since Python is already installed):
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Then create the file:
+
+**Windows (PowerShell):**
+```powershell
+@'
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your supabase anon key>
+SUPABASE_SERVICE_ROLE_KEY=<your supabase service role key>
+JWT_SECRET=<paste the random string you generated above>
+PORT=3000
+'@ | Out-File -Encoding utf8 .env
+```
+
+**macOS/Linux (bash):**
+```bash
+cat > .env << 'EOF'
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your supabase anon key>
+SUPABASE_SERVICE_ROLE_KEY=<your supabase service role key>
+JWT_SECRET=<paste the random string you generated above>
+PORT=3000
+EOF
+```
+
+Then **open `.env` in an editor and replace every `<...>` placeholder** with
+your real values before continuing -- the commands above only create the
+file's shape, they can't know your actual Supabase credentials.
+
+`.env` is already in `.gitignore` -- never commit it.
+
+## 6. Set up the database schema
+
+```bash
+pnpm db:push
+```
+
+## 7. Validate everything works
 
 ```bash
 pnpm check
 pnpm test
+```
+
+`pnpm test` takes ~10-15 seconds and includes one real call through the
+Python inference pipeline -- if it hangs much longer than that or fails,
+re-check step 3.
+
+## 8. Run it
+
+Development mode (hot-reload on file changes):
+
+```bash
 pnpm dev
 ```
 
-The browser application is available through the development URL printed by the server. Sign in before analysis because document creation and history are protected procedures.
-
-## Free DocTamper/DTD checkpoint
-
-The official DTD checkpoint is too large for the source repository, so it is intentionally excluded. Download the free research checkpoint from the authors' public Google Drive folder:
-
-[Official DocTamper checkpoints](https://drive.google.com/drive/folders/11Ep8PJIrlIveudQaRulDOBENHGqw762a?usp=sharing)
-
-Mount the following files under `models/weights/`:
-
-| File | Purpose |
-|---|---|
-| `dtd_doctamper.pth` | Main DocTamper/DTD segmentation checkpoint |
-| `vph_imagenet.pt` | Visual perception backbone weights |
-| `swin_imagenet.pt` | Swin backbone weights |
-
-The official model source is vendored under `models/dtd/`. The DTD implementation has a legacy PyTorch/MMCV dependency stack. When the required runtime and all three weights are available, `scripts/infer_document.py` attempts the real DTD branch. Otherwise, it reports the model status and uses the transparent baseline path.
-
-DocTamper data and checkpoints are intended for research/non-commercial use according to the official repository. Review the [official repository](https://github.com/qcf-568/DocTamper) and its license/access conditions before redistribution or institutional deployment.
-
-## Production build
+Or a production-style run:
 
 ```bash
 pnpm run build
 pnpm start
 ```
 
-The root `Dockerfile` installs Python and Pillow and builds the Node application. A production image that activates DTD inference must additionally provide a compatible CPU PyTorch/MMCV environment and the externally mounted model weights. Because the managed runtime is memory constrained, validate model memory use before deployment.
+Either prints the URL it's listening on, e.g. `Server running on
+http://localhost:3000/`.
 
-## Application flow
+## 9. Try it out
 
-Open **Analyze document**, choose or drop an image, and sign in. The server uploads the original file, invokes the Python subprocess, stores the generated overlay, asks the server-side LLM helper for a plain-language explanation, and persists the report. Open **Analysis history** to review prior authenticated analyses.
+1. Open the printed URL in your browser.
+2. Click sign in and enter any name/email (no real password check in this
+   build -- it's a placeholder auth flow, not production auth).
+3. Go to **Analyze document**, upload an image (PNG/JPEG/WEBP, up to 8MB).
+4. Wait ~10-20 seconds for the model + LLM to run.
+5. Check **Analysis history** to confirm it saved.
 
-## Validation
+## Troubleshooting
 
-```bash
-pnpm check
-pnpm test
-pnpm run build
-```
-
-The current test suite covers authentication boundaries, authenticated history, report orchestration, and the Python subprocess output contract.
+| Symptom | Cause | Fix |
+|---|---|---|
+| Explanation reads like a stiff template, not natural writing | Ollama isn't running or the model wasn't pulled | Check server logs for `[llm] Ollama unavailable`; re-run step 4 |
+| Saved report's model version says a fallback/baseline was used | Python venv missing or a package failed to install | Re-run step 3, watch for pip errors |
+| `pnpm test` fails on the inference test | Same as above | Re-run step 3; confirm `models/ml/.venv` exists |
+| Port already in use | Something else is on 3000 | The server auto-tries the next few ports -- check its startup log line for which one it picked |
+| `pnpm db:push` fails to connect | Wrong `DATABASE_URL` | Re-copy the connection string from Supabase's dashboard exactly |
