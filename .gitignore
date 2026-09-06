@@ -118,15 +118,10 @@ models/weights/*.pt
 # Small, project-trained artifacts are deploy-critical -- keep them in git
 # unlike the large third-party DTD checkpoint files above.
 !models/weights/tamper_unet.pt
-
-# Training data
+# Training data (ignored for now)
 training_data/
 
 # Runtime artifacts
 models/ml/
 scratch/
 scripts/__pycache__/
-
-# Local test documents pulled from research-licensed datasets -- not for
-# redistribution in a public repo.
-samples/
