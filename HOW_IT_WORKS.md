@@ -17,13 +17,13 @@ Protected tRPC procedure receives image data
         |
         +--> Python subprocess receives base64 image bytes
                     |
-                    +--> DTD branch if checkpoint + runtime are mounted
-                    |       - aspect-ratio preprocessing
-                    |       - RGB and JPEG-frequency inputs
+                    +--> U-Net checkpoint (tamper_unet.pt, or
+                    |    tamper_unet_findit.pt when present)
+                    |       - 256x256 RGB preprocessing
                     |       - segmentation mask prediction
                     |       - mask remapped to original dimensions
                     |
-                    +--> transparent baseline otherwise
+                    +--> transparent visual baseline otherwise
         |
         v
 Overlay image and normalized regions uploaded to object storage
@@ -48,19 +48,23 @@ The backend uses tRPC procedures rather than exposing ad hoc public REST endpoin
 
 ## Python inference layer
 
-The subprocess uses a JSON-compatible contract. It reads a base64 image from standard input and writes one JSON result to standard output. The DTD branch checks for the official checkpoint, backbone weights, quantization table, and compatible PyTorch runtime. If all are present, it loads the official model, produces a segmentation mask, resizes the mask back to the original image dimensions, extracts a normalized suspicious region, and composites the red evidence overlay directly onto the source image.
+The subprocess uses a JSON-compatible contract. It reads a base64 image from standard input and writes one JSON result to standard output. It loads `models/weights/tamper_unet.pt` (or `tamper_unet_findit.pt` when present), produces a segmentation mask, resizes it back to the original image dimensions, and composites the red evidence overlay onto the source image.
 
-If the legacy DTD runtime is absent, the subprocess does not pretend that a deep model ran. It returns an explicit status such as `dtd-checkpoint-missing` or `dtd-checkpoint-mounted-runtime-unavailable` and uses the transparent baseline path so the application can still be exercised. This distinction is important for academic reporting and institutional trust.
+The document score is not the average mask probability, because a small edit would be diluted by the rest of the page. Instead it combines the saturated coverage (fraction of pixels above 0.5, capped at 8% of the page) with the peak pixel probability. The result is split into `genuine` (0–34), `review` (35–64), and `forged` (65–99) so an uncertain document is not forced into a binary answer.
+
+If the checkpoint or Python runtime is absent, the subprocess does not pretend that a deep model ran. It returns `baseline-visual-fallback` (or `unet-checkpoint-mounted-runtime-unavailable`) and uses the transparent heuristic path so the application can still be exercised.
 
 ## Explainability layer
 
-The approved DTD path provides a segmentation-style localization mask rather than a Grad-CAM classification heatmap. The report therefore calls the visual output a **DTD localization overlay**. Normalized coordinates allow the browser to draw region markers on the overlay without knowing the model's internal tensor size.
+The U-Net provides a segmentation-style localization mask rather than a Grad-CAM classification heatmap. The report therefore calls the visual output a **tamper localization overlay**. Normalized coordinates allow the browser to draw region markers on the overlay without knowing the model's internal tensor size. Regions are connected components of hot cells on a coarse grid and are only shown once the score leaves the genuine band.
 
-The LLM receives structured findings such as prediction, score, tampering type, and flagged coordinates. It is instructed to write a cautious explanation for non-technical reviewers and not to claim official verification or legal certainty. The LLM call is server-side so credentials are not exposed in the browser.
+The LLM receives structured findings such as decision, score, tampering type, and flagged coordinates. It is instructed to write a cautious explanation for non-technical reviewers, to state that a human must decide when the band is `review`, and not to claim official verification or legal certainty. The LLM call is server-side so credentials are not exposed in the browser.
 
 ## Persistence and privacy
 
-Image bytes are kept in object storage. The database stores references, prediction data, region JSON, explanation text, model version, and timestamps. Analysis history is filtered by the authenticated user ID. The repository does not contain environment secrets or the large DTD weights.
+Image bytes are kept in a private object-storage bucket. The database stores references, prediction data, region JSON, explanation text, model version, and timestamps. Stored URLs point at `/manus-storage/<key>`, which redirects to a five-minute signed URL, so documents are not publicly readable. Analysis history is filtered by the authenticated user ID. The repository does not contain environment secrets or large model weights.
+
+Local email sign-in is development-only; production requires OAuth or Supabase Auth, and `auth.devLogin` is disabled unless `ALLOW_DEV_LOGIN=true` is set deliberately.
 
 ## What the system does not do
 

@@ -13,7 +13,12 @@ The repository states that the dataset is available through Baidu Drive and Kagg
 
 The upgraded application should use a two-stage research path: a document-tampering localization model based on the official DTD/DocTamper work for text and splicing-like anomalies, plus specialized signature/seal/stamp detectors or a project-specific multi-label fine-tuning stage. The deployed Python subprocess should support variable-size images by preserving aspect ratio, resizing the long edge to a bounded inference size, and mapping output masks back to original coordinates.
 
-The current sandbox does not contain PyTorch, TorchVision, or a public model artifact. The current checkpoint therefore keeps a clearly labelled baseline adapter. A real DocTamper/DTD or EfficientNet/TorchScript artifact must be supplied or downloaded under an approved license before claiming trained-model accuracy or true Grad-CAM results.
+Status update: the project now runs PyTorch + `segmentation_models_pytorch` in
+a local venv and ships a project-trained U-Net (`models/weights/tamper_unet.pt`,
+trained on a 1,500-pair DocTamper FCD subset). The vendored DTD source is not
+wired into inference because its legacy runtime and checkpoints are not
+shipped. Treat the DTD material below as background research, not as the
+current implementation.
 
 ## Complementary public sources
 

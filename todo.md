@@ -45,3 +45,15 @@
 - [x] Audit the repository for secrets, oversized files, private artifacts, and inaccurate public claims
 - [ ] Create a new public GitHub repository and push the application source and documentation
 - [ ] Verify the public repository contents, visibility, and documentation links
+
+## Post-audit fixes
+
+- [x] Replace mean-mask scoring with a coverage × peak score and genuine/review/forged bands
+- [x] Extract connected-component regions and hide them when the decision is genuine
+- [x] Add a labeled-sample regression test (`scripts/eval_samples.py` + `server/accuracy.test.ts`)
+- [x] Remove the unwired DTD branch and stop advertising a DTD model
+- [x] Make the storage bucket private and serve documents through a signed-URL proxy
+- [x] Disable local dev login in production and require `JWT_SECRET` in production
+- [x] Add a subprocess timeout and sanitize the LLM prompt filename
+- [x] Configure real OAuth or Supabase Auth for production sign-in
+- [x] Validate the receipt-domain model on a held-out set before preferring it over the default U-Net

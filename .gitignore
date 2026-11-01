@@ -125,3 +125,4 @@ training_data/
 models/ml/
 scratch/
 scripts/__pycache__/
+*.pdf

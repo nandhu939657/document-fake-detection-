@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 import torchvision.transforms as T
 import segmentation_models_pytorch as smp
 import torch.optim as optim
@@ -124,11 +124,15 @@ def dice_loss(pred, target, eps=1e-6):
 def train_one_epoch(model, loader, opt, device):
     model.train()
     total = 0.0
+    # Tampered pixels are a tiny fraction of each page. Without a positive
+    # weight the easiest minimum is "predict all background", which is exactly
+    # what the first run produced.
+    pos_weight = torch.tensor([20.0], device=device)
     for x, y in loader:
         x, y = x.to(device), y.to(device)
         opt.zero_grad()
         logits = model(x)
-        loss = dice_loss(logits, y) + F.binary_cross_entropy_with_logits(logits, y)
+        loss = dice_loss(logits, y) + F.binary_cross_entropy_with_logits(logits, y, pos_weight=pos_weight)
         loss.backward()
         opt.step()
         total += loss.item()
@@ -207,7 +211,11 @@ def main():
     device = torch.device("cpu")
     model = make_model(pretrained=True).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
-    train_loader = DataLoader(MaskDataset(train_items, train=True), batch_size=args.batch, shuffle=True, num_workers=0)
+    # Only ~16% of receipts contain annotated tampering; oversample them so each
+    # batch sees a usable number of positive masks.
+    sample_weights = [4.0 if rects else 1.0 for _, rects in train_items]
+    sampler = WeightedRandomSampler(sample_weights, num_samples=len(train_items), replacement=True)
+    train_loader = DataLoader(MaskDataset(train_items, train=True), batch_size=args.batch, sampler=sampler, num_workers=0)
     val_loader = DataLoader(MaskDataset(val_items, train=False), batch_size=args.batch, num_workers=0)
     test_loader = DataLoader(MaskDataset(test_items, train=False), batch_size=args.batch, num_workers=0)
 

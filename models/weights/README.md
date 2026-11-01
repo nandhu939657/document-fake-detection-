@@ -1,15 +1,26 @@
-# DTD checkpoint mount
+# Model checkpoints
 
-The official free DocTamper/DTD checkpoint is intentionally not committed to this repository because the 257 MB file exceeds project synchronization limits.
+## Live model
 
-Download the authors' public checkpoint from the official Google Drive folder:
+`tamper_unet.pt` is the default checkpoint: an EfficientNet-b0 U-Net
+(`segmentation_models_pytorch`, 1 input channel of output) trained on a
+1,500-pair DocTamper FCD subset. Validation: IoU 0.627, Dice 0.696.
 
-https://drive.google.com/drive/folders/11Ep8PJIrlIveudQaRulDOBENHGqw762a?usp=sharing
+It is loaded by `scripts/infer_document.py`. If it is missing, inference falls
+back to `tamper_unet_findit.pt` when present, then to the transparent visual
+baseline.
 
-Required file: `dtd_doctamper.pth`
+## Optional receipt-domain model
 
-Place it at:
+`tamper_unet_findit.pt` is produced by
+`scripts/train_segmentation_findit.py` from `training_data/findit2`
+(receipt tamper annotations). It is optional and only used as a second choice
+behind `tamper_unet.pt`.
 
-`models/weights/dtd_doctamper.pth`
+## DocTamper/DTD
 
-The official source code is vendored under `models/dtd/`. The current managed runtime does not include the legacy PyTorch/MMCV dependencies required by the DTD checkpoint, so the application reports the model status explicitly and uses its transparent baseline until a compatible CPU runtime or converted ONNX artifact is mounted.
+The vendored source under `models/dtd/` is reference material only. It is not
+called by the app and its official 257 MB checkpoint is not committed. The
+legacy PyTorch/MMCV/`jpegio` runtime required by that checkpoint is not part
+of `scripts/requirements.txt`, so do not expect the DTD path to run without
+separate setup.

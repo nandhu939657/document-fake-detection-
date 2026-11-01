@@ -1,5 +1,11 @@
+const isProduction = process.env.NODE_ENV === "production";
+const cookieSecret = process.env.JWT_SECRET ?? (isProduction ? "" : "default-local-jwt-secret");
+if (isProduction && !cookieSecret) {
+  throw new Error("JWT_SECRET must be set in production.");
+}
+
 export const ENV = {
-  cookieSecret: process.env.JWT_SECRET ?? "default-local-jwt-secret",
+  cookieSecret,
   databaseUrl: process.env.DATABASE_URL ?? "",
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "",

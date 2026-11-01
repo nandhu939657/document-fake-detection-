@@ -135,11 +135,12 @@ pnpm db:push
 ```bash
 pnpm check
 pnpm test
+models\ml\.venv\Scripts\python.exe scripts\eval_samples.py
 ```
 
-`pnpm test` takes ~10-15 seconds and includes one real call through the
-Python inference pipeline -- if it hangs much longer than that or fails,
-re-check step 3.
+`pnpm test` takes ~20-40 seconds and includes one real call through the
+Python inference pipeline plus a labeled-sample accuracy regression check --
+if it hangs much longer than that or fails, re-check step 3.
 
 ## 8. Run it
 
@@ -162,8 +163,10 @@ http://localhost:3000/`.
 ## 9. Try it out
 
 1. Open the printed URL in your browser.
-2. Click sign in and enter any name/email (no real password check in this
-   build -- it's a placeholder auth flow, not production auth).
+2. Click sign in and enter any name/email. This local sign-in is
+   development-only: in production it is disabled unless you set
+   `ALLOW_DEV_LOGIN=true`, and a real deployment should configure OAuth or
+   Supabase Auth.
 3. Go to **Analyze document**, upload an image (PNG/JPEG/WEBP, up to 8MB).
 4. Wait ~10-20 seconds for the model + LLM to run.
 5. Check **Analysis history** to confirm it saved.

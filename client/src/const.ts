@@ -11,9 +11,6 @@ export const startLogin = () => {
   if (_loginCallback) {
     _loginCallback();
   } else {
-    const email = window.prompt("Enter your email to sign in to VerityLens:", "reviewer@institution.com");
-    if (email) {
-      window.location.reload();
-    }
+    window.alert("Sign-in is not available on this screen. Open the workspace and use the Sign in button.");
   }
 };

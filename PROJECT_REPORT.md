@@ -5,9 +5,10 @@
 VerityLens is a website where someone can upload a photo or scan of a
 document (like a receipt, form, or certificate), and the site tries to tell
 them whether the text on it looks like it's been edited or tampered with.
-It shows a prediction ("genuine" or "forged"), highlights the suspicious
-area on the image in red, and writes a short paragraph explaining what it
-found.
+It shows a decision ("genuine", "needs review", or "forged"), highlights the
+suspicious area on the image in red or amber, and writes a short paragraph
+explaining what it found. The score is split into three bands so an uncertain
+document is not forced into a yes/no answer.
 
 Think of it as a first-pass screening tool, not a final verdict. It's meant
 to flag documents that might deserve a closer human look -- it does **not**

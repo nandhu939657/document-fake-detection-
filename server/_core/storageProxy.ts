@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { ENV } from "./env";
+import { storageGetSignedUrl } from "../storage";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
@@ -8,7 +8,11 @@ export function registerStorageProxy(app: Express) {
       res.status(400).send("Missing storage key");
       return;
     }
-    const publicUrl = `${ENV.supabaseUrl}/storage/v1/object/public/veritylens/${key}`;
-    res.redirect(307, publicUrl);
+    try {
+      res.redirect(307, await storageGetSignedUrl(key));
+    } catch (error) {
+      console.error("[Storage] Signed URL failed:", error);
+      res.status(404).send("Document not found");
+    }
   });
 }

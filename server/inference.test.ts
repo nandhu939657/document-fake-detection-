@@ -13,18 +13,15 @@ describe("python document inference adapter", () => {
     });
     const result = JSON.parse(output) as Record<string, unknown>;
     expect(["genuine", "forged"]).toContain(result.prediction);
+    expect(["genuine", "review", "forged"]).toContain(result.decision);
     expect(result.forgeryScore).toEqual(expect.any(Number));
     expect(result.tamperingTypes).toEqual(expect.any(Array));
     expect(result.flaggedRegions).toEqual(expect.any(Array));
     expect(result.overlayBase64).toEqual(expect.any(String));
     expect([
-      "dtd-checkpoint-mounted-runtime-ready",
-      "dtd-checkpoint-mounted-runtime-unavailable",
-      "dtd-checkpoint-missing",
-      "unet-checkpoint-mounted-runtime-ready",
       "unet-checkpoint-mounted-runtime-unavailable",
       "unet-runtime-active",
-      "dtd-runtime-active",
+      "baseline-visual-fallback",
     ]).toContain(result.modelStatus);
     const regions = result.flaggedRegions as Array<Record<string, unknown>>;
     if (regions.length > 0) {

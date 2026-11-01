@@ -28,14 +28,23 @@ async function ensureBucket(supabase: ReturnType<typeof getSupabaseAdmin>) {
   if (_bucketEnsured) return;
   try {
     const { data: buckets } = await supabase.storage.listBuckets();
-    const exists = buckets?.some((b) => b.name === BUCKET_NAME);
-    if (!exists) {
-      await supabase.storage.createBucket(BUCKET_NAME, { public: true });
+    const bucket = buckets?.find((b) => b.name === BUCKET_NAME);
+    if (!bucket) {
+      await supabase.storage.createBucket(BUCKET_NAME, { public: false });
+    } else if (bucket.public) {
+      await supabase.storage.updateBucket(BUCKET_NAME, { public: false });
     }
     _bucketEnsured = true;
   } catch (err) {
     console.warn("[Storage] Bucket provisioning check:", err);
   }
+}
+
+// Documents are private; the browser reads them through the authenticated-by-
+// unguessable-key proxy at /manus-storage/<key>, which redirects to a short-lived
+// signed URL. Storing the proxy path keeps saved analyses stable across restarts.
+function proxyUrl(key: string): string {
+  return `/manus-storage/${key}`;
 }
 
 export async function storagePut(
@@ -59,27 +68,21 @@ export async function storagePut(
     throw new Error(`Storage upload failed: ${error.message}`);
   }
 
-  const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(key);
-
-  return { key, url: publicUrlData.publicUrl };
+  return { key, url: proxyUrl(key) };
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
-  const supabase = getSupabaseAdmin();
   const key = normalizeKey(relKey);
-  const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(key);
-  return { key, url: publicUrlData.publicUrl };
+  return { key, url: proxyUrl(key) };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const supabase = getSupabaseAdmin();
   const key = normalizeKey(relKey);
-  const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(key, 3600);
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(key, 300);
 
   if (error || !data?.signedUrl) {
-    // Fallback to public URL
-    const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(key);
-    return publicUrlData.publicUrl;
+    throw new Error(`Storage signed URL failed: ${error?.message ?? "unknown error"}`);
   }
 
   return data.signedUrl;
