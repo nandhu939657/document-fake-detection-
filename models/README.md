@@ -8,7 +8,7 @@ Recommended research training path:
 
 | Branch | Public starting data | Output |
 |---|---|---|
-| Text tampering | DocTamper / official DTD implementation | Pixel mask and text-tampering confidence |
+| Text tampering | DocTamper FCD subset (trained U-Net) | Pixel mask and text-tampering confidence |
 | Signature | CEDAR, ICDAR, GPDS-style cropped benchmarks | Signature crop forgery confidence |
 | Splicing | Columbia splicing dataset or an approved modern localization set | Spliced-region mask |
 | Seal/logo | Institution-specific annotated crops | Seal/logo region class and confidence |

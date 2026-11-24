@@ -11,40 +11,42 @@ not check signatures, seals, or stamps against an issuing authority.
 ## How the decision is made
 
 The model returns a per-pixel probability map. Averaging that map over the
-whole page hides small edits, so the score combines two signals:
+whole page hides small edits, so the score combines confidence with edited
+area:
 
 ```text
-coverage = fraction of pixels above 0.5
-peak     = strongest single-pixel probability
-score    = 100 * min(1, coverage / 0.08) * peak
+confidence = 0.5 * peak + 0.5 * mean(probabilities above 0.5)
+area       = min(1, coverage / 0.03)      # cover >=3% of the page => conclusive
+score      = 100 * confidence * area
 ```
 
-`0.08` means "a tamper covering about 8% of the page is already conclusive".
-The score is reported in three bands:
+`0.03` means "a confident tamper covering about 3% of the page is already
+conclusive". The score is reported in three bands:
 
 | Score | Decision | Meaning |
 |---|---|---|
 | 0–34 | `genuine` | No strong tamper signal |
-| 35–64 | `review` | Possible tampering; a human must decide |
-| 65–99 | `forged` | Strong localized tamper signal |
+| 35–69 | `review` | Possible tampering; a human must decide |
+| 70–99 | `forged` | Strong localized tamper signal |
 
-Regions are connected components of hot cells on a 16×16 grid, with the mean
-probability of each box as its confidence. Regions are only surfaced once the
-score leaves the genuine band.
+Regions are connected components of hot cells on a 16×16 grid, then each box is
+tightened to the flagged pixels it contains. Box confidence is the mean
+probability inside the box; boxes below 0.30 are treated as noise. Regions are
+only surfaced once the score leaves the genuine band.
 
 ## Model
 
-`models/weights/tamper_unet.pt` is the default checkpoint: an
+`models/weights/tamper_unet.pt` is the shipped checkpoint: an
 EfficientNet-b0 U-Net trained on a 1,500-pair DocTamper FCD subset
 (validation IoU 0.627, Dice 0.696). If
 `models/weights/tamper_unet_findit.pt` exists it is used as a second option;
-that checkpoint is trained on receipt-domain pixel annotations. If neither
-artifact or the Python runtime is available, the app falls back to a clearly
-labelled visual heuristic instead of pretending a model ran.
+that receipt-domain checkpoint is still experimental and is not shipped (see
+`models/weights/README.md`). If neither artifact or the Python runtime is
+available, the app falls back to a clearly labelled visual heuristic instead
+of pretending a model ran.
 
-The vendored DocTamper/DTD source under `models/dtd/` is not wired into
-inference. It needs legacy dependencies and checkpoints that are not shipped,
-so the app no longer advertises a DTD path.
+The trained U-Net is the only detection path that ships. The app no longer
+advertises a DocTamper/DTD runtime; the vendored source has been removed.
 
 ## Quick start
 

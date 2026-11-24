@@ -18,7 +18,7 @@ vi.mock("node:child_process", () => ({
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     child.stdin = { end: () => {
-      const output = { prediction: "forged", forgeryScore: 88, tamperingTypes: ["tampered text"], flaggedRegions: [{ label: "tampered text", confidence: 0.88, x: 0.1, y: 0.2, width: 0.3, height: 0.1 }], overlayBase64: Buffer.from("overlay").toString("base64"), modelVersion: "DocTamper/DTD official checkpoint" };
+      const output = { prediction: "forged", forgeryScore: 88, tamperingTypes: ["tampered text"], flaggedRegions: [{ label: "tampered text", confidence: 0.88, x: 0.1, y: 0.2, width: 0.3, height: 0.1 }], overlayBase64: Buffer.from("overlay").toString("base64"), modelVersion: "Project-trained U-Net (EfficientNet-b0, DocTamper FCD subset)" };
       child.stdout.emit("data", Buffer.from(JSON.stringify(output)));
       child.emit("close", 0);
     } };

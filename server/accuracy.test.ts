@@ -21,6 +21,7 @@ describe("forgery score regression", () => {
       fakes_outscore_genuine: true,
       at_least_one_fake_forged: true,
       no_genuine_forged: true,
+      obvious_fakes_outscore_genuine: true,
     });
     expect(result.passed).toBe(true);
   }, 300_000);

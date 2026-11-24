@@ -121,13 +121,14 @@ def dice_loss(pred, target, eps=1e-6):
     return 1.0 - (2.0 * inter + eps) / (union + eps)
 
 
-def train_one_epoch(model, loader, opt, device):
+def train_one_epoch(model, loader, opt, device, pos_weight):
     model.train()
     total = 0.0
-    # Tampered pixels are a tiny fraction of each page. Without a positive
-    # weight the easiest minimum is "predict all background", which is exactly
-    # what the first run produced.
-    pos_weight = torch.tensor([20.0], device=device)
+    # Tampered pixels are ~0.19% of each page (1 in ~530). A small positive
+    # weight still lets the all-background minimum win (that is what earlier
+    # runs did: loss pinned at dice~1.0 + BCE~0). The weight must be on the
+    # order of 1/positive_fraction; expose it as a calibration knob.
+    pos_weight = torch.tensor([float(pos_weight)], device=device)
     for x, y in loader:
         x, y = x.to(device), y.to(device)
         opt.zero_grad()
@@ -184,6 +185,8 @@ def main():
     ap.add_argument("--epochs", type=int, default=12)
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--pos-weight", type=float, default=250.0,
+                    help="BCE positive weight; ~1/positive-pixel-fraction for this data")
     ap.add_argument("--seed", type=int, default=7)
     args = ap.parse_args()
 
@@ -222,7 +225,7 @@ def main():
     print("params(M):", round(sum(p.numel() for p in model.parameters()) / 1e6, 2))
     best_f1 = -1.0
     for epoch in range(1, args.epochs + 1):
-        loss = train_one_epoch(model, train_loader, opt, device)
+        loss = train_one_epoch(model, train_loader, opt, device, args.pos_weight)
         metrics = evaluate(model, val_loader, device)
         print(f"epoch {epoch:02d} loss={loss:.4f} iou={metrics['iou']:.4f} dice={metrics['dice']:.4f} "
               f"doc_acc={metrics['doc_acc']:.4f} doc_prec={metrics['doc_prec']:.4f} "

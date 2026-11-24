@@ -35,6 +35,13 @@ CASES = [
     ("samples/sample-14-web-genuine-invoice.png", "genuine"),
 ]
 
+# Unambiguous fakes used for the shipping gate: each must outscore all genuine.
+OBVIOUS_FAKES = {
+    "samples/sample-2-fake-obvious.jpg",
+    "samples/sample-6-fake-moderate.jpg",
+    "samples/sample-12-web-fake-obvious.png",
+}
+
 
 def evaluate(relative_path: str, weights: Path | None):
     path = ROOT / relative_path
@@ -75,12 +82,17 @@ def main() -> int:
     genuine_scores = [row["score"] for row in rows if row["label"] == "genuine" and row["score"] is not None]
     genuine_forged = [row["file"] for row in rows if row["label"] == "genuine" and row["decision"] == "forged"]
     fake_forged = [row["file"] for row in rows if row["label"] == "fake" and row["decision"] == "forged"]
+    obvious_fake_scores = [row["score"] for row in rows if row["file"] in OBVIOUS_FAKES and row["score"] is not None]
+    max_genuine = max(genuine_scores) if genuine_scores else None
 
     checks = {
         "model_loaded": len(fake_scores) == len([r for r in rows if r["label"] == "fake"]) and len(genuine_scores) == len([r for r in rows if r["label"] == "genuine"]),
         "fakes_outscore_genuine": bool(fake_scores and genuine_scores) and (sum(fake_scores) / len(fake_scores)) > (sum(genuine_scores) / len(genuine_scores)),
         "at_least_one_fake_forged": len(fake_forged) >= 1,
         "no_genuine_forged": len(genuine_forged) == 0,
+        # The headline guarantee: every obvious fake must score strictly higher
+        # than every genuine sample. If this fails, the build must not ship.
+        "obvious_fakes_outscore_genuine": bool(obvious_fake_scores and max_genuine is not None) and min(obvious_fake_scores) > max_genuine,
     }
     passed = all(checks.values())
 

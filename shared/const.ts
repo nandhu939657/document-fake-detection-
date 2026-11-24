@@ -6,7 +6,7 @@ export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
 
 export type AnalysisDecision = "genuine" | "review" | "forged";
 export const DECISION_REVIEW_MIN = 35;
-export const DECISION_FORGED_MIN = 65;
+export const DECISION_FORGED_MIN = 70;
 
 export const decisionForScore = (score: number): AnalysisDecision => {
   if (score >= DECISION_FORGED_MIN) return "forged";

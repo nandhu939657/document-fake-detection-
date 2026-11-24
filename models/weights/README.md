@@ -10,17 +10,27 @@ It is loaded by `scripts/infer_document.py`. If it is missing, inference falls
 back to `tamper_unet_findit.pt` when present, then to the transparent visual
 baseline.
 
-## Optional receipt-domain model
+## Receipt-domain model (experimental, not shipped)
 
-`tamper_unet_findit.pt` is produced by
-`scripts/train_segmentation_findit.py` from `training_data/findit2`
-(receipt tamper annotations). It is optional and only used as a second choice
-behind `tamper_unet.pt`.
+`scripts/train_segmentation_findit.py` trains a receipt-domain U-Net from
+`training_data/findit2` (93 forged / 484 genuine receipts, pixel annotations).
+An earlier run produced an all-background model (val doc-F1 0.0), so its
+checkpoint was removed. The script now exposes a `--pos-weight` calibration
+knob, but the data is extremely imbalanced (tampered pixels are ~0.19% of each
+page), so the model still needs real work before it is usable:
+
+- at `--pos-weight 20` it collapses to "nothing is tampered";
+- at `--pos-weight 250` it collapses to "everything is tampered" (no
+  calibration even after several epochs).
+
+A genuine fix likely needs focal loss (or hard example mining), higher
+training resolution so the small annotated boxes survive, and many more
+epochs. Until a run clears the `obvious_fakes_outscore_genuine` gate in
+`scripts/eval_samples.py`, do not ship this checkpoint. The default
+`tamper_unet.pt` above is the model that actually runs.
 
 ## DocTamper/DTD
 
-The vendored source under `models/dtd/` is reference material only. It is not
-called by the app and its official 257 MB checkpoint is not committed. The
-legacy PyTorch/MMCV/`jpegio` runtime required by that checkpoint is not part
-of `scripts/requirements.txt`, so do not expect the DTD path to run without
-separate setup.
+The vendored DocTamper/DTD source has been removed. The trained U-Net above is
+the only detection path that ships; only the DocTamper FCD *training data* was
+used, not the DTD runtime.
