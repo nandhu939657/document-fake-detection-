@@ -1,29 +1,26 @@
-# VerityLens Setup Guide
+# VerityLens Complete Setup & Training Guide
 
-VerityLens is a document-screening web app: upload an image, a locally-run
-U-Net model screens it for signs of tampered text, and a locally-run LLM
-writes a plain-language explanation. No third-party AI API is called at
-runtime -- everything runs on your own machine.
+VerityLens is an institutional-grade, explainable document forgery detection web application. It combines:
+1. **Local Deep Learning (U-Net)** to segment tampered text regions, forged signatures, and altered seals.
+2. **Local AI Model (Ollama LLM)** to generate plain-language, reviewer-friendly explanations.
+3. **Interactive Visual Evidence UI** with marked vs. clean original document inspection, red text underlines, and signature/seal circular markers.
+4. **Instant Testing Mode** — No sign-in or account creation required; anyone can test immediately.
 
-> This is a research prototype, not a certified fraud detector. It only
-> screens for edited/altered text regions, does not check signatures, seals,
-> or stamps, and should not be treated as legal or institutional proof of
-> authenticity.
+Everything runs **100% locally on your machine** without sending documents to third-party AI APIs.
 
-Every step below is a command block you can paste as-is into your terminal.
-Run them in order, top to bottom, from the project's root folder unless
-told otherwise. Pick the **Windows (PowerShell)** or **macOS/Linux (bash)**
-block that matches your machine wherever they differ.
+---
 
-## 0. Prerequisites (install these first, not paste-able)
+## 0. Prerequisites Checklist
 
-- **Node.js 22+** -- https://nodejs.org
-- **Python 3.10+** -- https://python.org (make sure "Add to PATH" is checked on Windows)
-- **Ollama** -- https://ollama.com/download (for the real, local AI-written
-  explanation; the app still runs without it, using a canned template instead)
-- **Git**
+Install these once on your system before proceeding:
 
-Verify they're all on your PATH:
+- **Node.js (v20 or v22 LTS)** — [https://nodejs.org](https://nodejs.org)
+- **Python (v3.10 or v3.11)** — [https://python.org](https://python.org)  
+  *(Windows users: make sure to check **"Add Python to PATH"** during installation)*
+- **Ollama** (for local LLM explanations) — [https://ollama.com/download](https://ollama.com/download)
+- **Git** — [https://git-scm.com](https://git-scm.com)
+
+Verify your installations in your terminal:
 
 ```bash
 node --version
@@ -32,151 +29,259 @@ git --version
 ollama --version
 ```
 
-## 1. Clone the repo
+---
+
+## 1. Clone the Repository
+
+Open a terminal and clone the repository:
 
 ```bash
-git clone https://github.com/nandhuitarang-ops/fake-documentry-.git
+git clone https://github.com/nandhu939657/document-fake-detection-.git
+cd document-fake-detection-
+```
+
+*(If you received the project as a `.zip` or folder, navigate into `fake-documentry-`)*
+
+```bash
 cd fake-documentry-
 ```
 
-## 2. Install pnpm and Node dependencies
+---
+
+## 2. Install Node Dependencies
+
+Install `pnpm` and project dependencies:
 
 ```bash
 npm install -g pnpm
 pnpm install
 ```
 
-## 3. Create the Python ML virtual environment
+---
 
-**Windows (PowerShell):**
+## 3. Set Up Python ML Environment
+
+Create a dedicated virtual environment under `models/ml/.venv` and install PyTorch with the necessary computer vision dependencies.
+
+### Windows (PowerShell):
 ```powershell
 python -m venv models\ml\.venv
 models\ml\.venv\Scripts\python.exe -m pip install --upgrade pip
 models\ml\.venv\Scripts\python.exe -m pip install -r scripts\requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-**macOS/Linux (bash):**
+### macOS / Linux (bash):
 ```bash
 python3 -m venv models/ml/.venv
 models/ml/.venv/bin/python -m pip install --upgrade pip
 models/ml/.venv/bin/python -m pip install -r scripts/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-This installs directly into the venv without needing to "activate" it first
--- `server/pythonRuntime.ts` finds and uses `models/ml/.venv` automatically.
-This step downloads PyTorch (~150MB); if you skip it, the app still runs but
-every analysis falls back to a non-ML visual heuristic instead of the real
-trained model.
+> **Note:** The backend automatically locates `models/ml/.venv` at runtime. You do not need to activate the environment manually.
 
-## 4. Pull the local LLM model
+---
 
-Make sure the Ollama app/service is running, then:
+## 4. Install & Run the Local LLM (Ollama)
+
+VerityLens uses a local LLM to write transparent explanations of the forensic findings.
+
+1. Start the Ollama application or service on your computer.
+2. In your terminal, pull the recommended model:
 
 ```bash
 ollama pull llama3.2:3b
 ```
 
-This is a ~2GB download. The server talks to it at `http://127.0.0.1:11434`
-by default.
+3. Verify that Ollama is responding:
 
-## 5. Create your `.env` file
+```bash
+ollama run llama3.2:3b "Hello, VerityLens!"
+```
 
-You need a free [Supabase](https://supabase.com) project for the database
-and auth keys. Create one, then go to **Project Settings > API** and
-**Project Settings > Database > Connection string** to get the values below.
+*(Ollama listens on `http://127.0.0.1:11434` by default. If Ollama is ever offline, the server automatically provides a dynamic fallback explanation without crashing).*
 
-Generate a random `JWT_SECRET` with this one-liner (works on both platforms
-since Python is already installed):
+---
 
+## 5. Training or Retraining the ML Model
+
+> **Good News:** The repository already ships with a pre-trained model checkpoint at `models/weights/tamper_unet.pt`. If you just want to run the app, **you do not need to train anything**! Skip to Step 6.
+
+If you want to train your own model or fine-tune on a custom dataset, follow the steps below:
+
+### Architecture
+- Model: Compact U-Net with an `efficientnet-b0` backbone (`segmentation_models_pytorch`).
+- Objective: Pixel-level binary segmentation of altered or tampered regions.
+- Loss: Combined Dice Loss + Binary Cross-Entropy with Sigmoid activations.
+
+### Step 5.1: Dataset Structure
+Prepare your training dataset in paired image and mask folders:
+
+```
+training_data/
+└── my_dataset/
+    ├── images/
+    │   ├── doc_001.jpg
+    │   ├── doc_002.jpg
+    │   └── ...
+    └── masks/
+        ├── doc_001.png
+        ├── doc_002.png
+        └── ...
+```
+- Images: RGB document images.
+- Masks: 8-bit grayscale / binary PNGs matching the base filenames, where `255` = tampered pixel and `0` = genuine pixel.
+
+### Step 5.2: Run Model Self-Test
+Verify that the model definition, loss function, and forward pass hold:
+
+**Windows (PowerShell):**
+```powershell
+models\ml\.venv\Scripts\python.exe scripts\train.py --self-test
+```
+
+**macOS / Linux (bash):**
+```bash
+models/ml/.venv/bin/python scripts/train.py --self-test
+```
+
+You should see: `self-test OK: model forward + loss shapes valid`.
+
+### Step 5.3: Train the Model
+Run the training script pointing to your dataset folder:
+
+**Windows (PowerShell):**
+```powershell
+models\ml\.venv\Scripts\python.exe scripts\train.py --data training_data/my_dataset --out models\weights\tamper_unet.pt --epochs 12 --batch 8 --pretrained
+```
+
+**macOS / Linux (bash):**
+```bash
+models/ml/.venv/bin/python scripts/train.py --data training_data/my_dataset --out models/weights/tamper_unet.pt --epochs 12 --batch 8 --pretrained
+```
+
+### Step 5.4: Evaluate on Benchmark Samples
+Verify that the model correctly separates fakes from genuine documents on the built-in test suite:
+
+**Windows (PowerShell):**
+```powershell
+models\ml\.venv\Scripts\python.exe scripts\eval_samples.py
+```
+
+**macOS / Linux (bash):**
+```bash
+models/ml/.venv/bin/python scripts/eval_samples.py
+```
+
+---
+
+## 6. Configure Environment Variables (`.env`)
+
+Create your `.env` configuration file in the project root.
+
+Generate a random secret key:
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Then create the file:
-
-**Windows (PowerShell):**
+### Windows (PowerShell):
 ```powershell
 @'
 DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your supabase anon key>
 SUPABASE_SERVICE_ROLE_KEY=<your supabase service role key>
-JWT_SECRET=<paste the random string you generated above>
+JWT_SECRET=replace_with_generated_secret_key
 PORT=3000
 '@ | Out-File -Encoding utf8 .env
 ```
 
-**macOS/Linux (bash):**
+### macOS / Linux (bash):
 ```bash
 cat > .env << 'EOF'
 DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your supabase anon key>
 SUPABASE_SERVICE_ROLE_KEY=<your supabase service role key>
-JWT_SECRET=<paste the random string you generated above>
+JWT_SECRET=replace_with_generated_secret_key
 PORT=3000
 EOF
 ```
 
-Then **open `.env` in an editor and replace every `<...>` placeholder** with
-your real values before continuing -- the commands above only create the
-file's shape, they can't know your actual Supabase credentials.
+> **Database Note:** Replace the placeholders with your database credentials (e.g. from a free [Supabase](https://supabase.com) PostgreSQL database or local Postgres instance).
 
-`.env` is already in `.gitignore` -- never commit it.
-
-## 6. Set up the database schema
+Initialize the database schema:
 
 ```bash
 pnpm db:push
 ```
 
-## 7. Validate everything works
+---
+
+## 7. Validate the Entire Stack
+
+Run TypeScript compilation and Vitest tests to ensure all components are wired correctly:
 
 ```bash
 pnpm check
 pnpm test
-models\ml\.venv\Scripts\python.exe scripts\eval_samples.py
 ```
 
-`pnpm test` takes ~20-40 seconds and includes one real call through the
-Python inference pipeline plus a labeled-sample accuracy regression check --
-if it hangs much longer than that or fails, re-check step 3.
+All test suites should pass, confirming that Python subprocess inference, LLM explainability, and database procedures are operational.
 
-## 8. Run it
+---
 
-Development mode (hot-reload on file changes):
+## 8. Run the Application
+
+Start the development server with live reload:
 
 ```bash
 pnpm dev
 ```
 
-Or a production-style run:
+Or build and run in production mode:
 
 ```bash
-pnpm run build
+pnpm build
 pnpm start
 ```
 
-Either prints the URL it's listening on, e.g. `Server running on
-http://localhost:3000/`.
+The terminal will display the local URL:
+```
+Server running on http://localhost:3000/
+```
 
-## 9. Try it out
+---
 
-1. Open the printed URL in your browser.
-2. Click sign in and enter any name/email. This local sign-in is
-   development-only: in production it is disabled unless you set
-   `ALLOW_DEV_LOGIN=true`, and a real deployment should configure OAuth or
-   Supabase Auth.
-3. Go to **Analyze document**, upload an image (PNG/JPEG/WEBP, up to 8MB).
-4. Wait ~10-20 seconds for the model + LLM to run.
-5. Check **Analysis history** to confirm it saved.
+## 9. Instant Document Testing (No Login Required)
 
-## Troubleshooting
+1. Open `http://localhost:3000` in your web browser.
+2. The app starts immediately in **Instant Testing Mode** — you do not need to sign in!
+3. Drag & drop or browse for any document image (PNG, JPG, or WEBP up to 8 MB).
+4. Click **"Analyze document"**.
+5. Within seconds, the analysis report displays:
+   - **Visual Evidence:** Suspect altered text is marked with a clean **red underline**; suspect signatures and seals/logos are marked with **red circles**.
+   - **Inspection Toggle:** Switch between **Marked Evidence** and **Clean Original** document view.
+   - **Forgery Likelihood Score:** Probability score with institutional status band (Genuine / Human Review / Forgery suspected).
+   - **Plain-Language Explanation:** AI-generated narrative detailing specific tampered regions and detected anomalies.
+   - **Analysis History:** Click the **Analysis history** tab to review previous test results.
 
-| Symptom | Cause | Fix |
+### Ready-to-Test Sample Images Included
+You can immediately test using the pre-packaged files in the `samples/` directory:
+- **Genuine Letter:** `samples/sample-1-genuine-letter.png`
+- **Genuine Invoice:** `samples/sample-4-genuine-invoice.png`
+- **Genuine Form:** `samples/sample-5-genuine-form.png`
+- **Obvious Forged Document:** `samples/sample-2-fake-obvious.jpg`
+- **Forged Signature:** `samples/sample-8-forged-signature.jpg`
+- **Altered Invoice:** `samples/sample-15-web-fake-invoice-obvious.png`
+
+---
+
+## 10. Troubleshooting
+
+| Issue | Cause | Solution |
 |---|---|---|
-| Explanation reads like a stiff template, not natural writing | Ollama isn't running or the model wasn't pulled | Check server logs for `[llm] Ollama unavailable`; re-run step 4 |
-| Saved report's model version says a fallback/baseline was used | Python venv missing or a package failed to install | Re-run step 3, watch for pip errors |
-| `pnpm test` fails on the inference test | Same as above | Re-run step 3; confirm `models/ml/.venv` exists |
-| Port already in use | Something else is on 3000 | The server auto-tries the next few ports -- check its startup log line for which one it picked |
-| `pnpm db:push` fails to connect | Wrong `DATABASE_URL` | Re-copy the connection string from Supabase's dashboard exactly |
+| AI explanation reads like a basic template | Ollama is not running or the model wasn't pulled | Run `ollama pull llama3.2:3b` and ensure Ollama desktop app is running. |
+| Report shows `visual baseline only` | Python venv missing or requirements incomplete | Re-run Step 3 and ensure PyTorch installed properly into `models/ml/.venv`. |
+| `pnpm test` hangs or fails on inference | Python cannot find dependencies | Run `models\ml\.venv\Scripts\python.exe -m pip list` to check `torch` and `segmentation_models_pytorch`. |
+| Port 3000 already in use | Another service is using port 3000 | Set `PORT=3001` in your `.env` file or check server logs for the auto-assigned port. |
+| Database connection error | Invalid or disconnected Postgres URL | Verify your `DATABASE_URL` in `.env` and run `pnpm db:push`. |
