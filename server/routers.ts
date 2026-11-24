@@ -5,7 +5,7 @@ import { ENV } from "./_core/env";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { createDocumentAnalysis, getDocumentAnalysisById, listDocumentAnalyses } from "./db";
+import { createDocumentAnalysis, getDocumentAnalysisById, getOrCreateGuestUser, listDocumentAnalyses } from "./db";
 import { storagePut } from "./storage";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -86,16 +86,17 @@ export const appRouter = router({
     }),
   }),
   analysis: router({
-    history: protectedProcedure.query(async ({ ctx }) => (await listDocumentAnalyses(ctx.user.id)).map(withDecision)),
-    get: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
-      const row = await getDocumentAnalysisById(input.id, ctx.user.id);
+    history: publicProcedure.query(async ({ ctx }) => (await listDocumentAnalyses(ctx.user?.id)).map(withDecision)),
+    get: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      const row = await getDocumentAnalysisById(input.id, ctx.user?.id);
       return row ? withDecision(row) : row;
     }),
-    create: protectedProcedure.input(z.object({ fileName: z.string().min(1).max(255), mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]), dataUrl: dataUrlSchema })).mutation(async ({ ctx, input }) => {
+    create: publicProcedure.input(z.object({ fileName: z.string().min(1).max(255), mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]), dataUrl: dataUrlSchema })).mutation(async ({ ctx, input }) => {
+      const user = ctx.user ?? (await getOrCreateGuestUser());
       const base64 = input.dataUrl.split(",")[1] ?? "";
       const originalBytes = Buffer.from(base64, "base64");
       if (originalBytes.byteLength > 8 * 1024 * 1024) throw new Error("Please upload an image smaller than 8 MB.");
-      const original = await storagePut(`documents/${ctx.user.id}/${randomUUID()}-${input.fileName}`, originalBytes, input.mimeType);
+      const original = await storagePut(`documents/${user.id}/${randomUUID()}-${input.fileName}`, originalBytes, input.mimeType);
       const rawResult = await execAnalysis(base64);
       const result = JSON.parse(rawResult ?? "") as {
         prediction?: "genuine" | "forged";
@@ -110,7 +111,7 @@ export const appRouter = router({
       if (!result.overlayBase64) throw new Error("The analysis model did not return an overlay.");
       const decision = result.decision ?? decisionForScore(result.forgeryScore);
       const overlayBytes = Buffer.from(result.overlayBase64, "base64");
-      const overlay = await storagePut(`analyses/${ctx.user.id}/${randomUUID()}-overlay.jpg`, overlayBytes, "image/jpeg");
+      const overlay = await storagePut(`analyses/${user.id}/${randomUUID()}-overlay.jpg`, overlayBytes, "image/jpeg");
       const safeFileName = input.fileName.replace(/[\r\n]+/g, " ").slice(0, 255);
       const llmResponse = await invokeLLM({
         messages: [
@@ -120,7 +121,7 @@ export const appRouter = router({
       });
       const explanation = String(llmResponse.choices?.[0]?.message?.content ?? "The model completed the analysis, but a narrative explanation was unavailable.");
       const row = await createDocumentAnalysis({
-        userId: ctx.user.id,
+        userId: user.id,
         fileName: input.fileName,
         mimeType: input.mimeType,
         originalKey: original.key,

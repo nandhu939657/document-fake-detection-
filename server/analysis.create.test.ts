@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createDocumentAnalysis: vi.fn(),
   getDocumentAnalysisById: vi.fn(),
   listDocumentAnalyses: vi.fn(),
+  getOrCreateGuestUser: vi.fn().mockResolvedValue({ id: 9, openId: "reviewer", name: "Reviewer" }),
   storagePut: vi.fn(),
   invokeLLM: vi.fn(),
 }));

@@ -5,6 +5,7 @@ vi.mock("./db", () => ({
   listDocumentAnalyses,
   createDocumentAnalysis: vi.fn(),
   getDocumentAnalysisById: vi.fn(),
+  getOrCreateGuestUser: vi.fn().mockResolvedValue({ id: 1, openId: "guest_user", name: "Guest Reviewer" }),
 }));
 
 import { appRouter } from "./routers";

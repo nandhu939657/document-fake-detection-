@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { documentAnalyses, InsertDocumentAnalysis, InsertUser, users } from "../drizzle/schema";
+import { documentAnalyses, InsertDocumentAnalysis, InsertUser, User, users } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -53,6 +53,47 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getOrCreateGuestUser(): Promise<User> {
+  const db = await getDb();
+  if (!db) {
+    return {
+      id: 1,
+      openId: "guest_user",
+      name: "Guest Reviewer",
+      email: "guest@veritylens.local",
+      loginMethod: "guest",
+      role: "user",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    };
+  }
+  const existing = await getUserByOpenId("guest_user");
+  if (existing) return existing;
+
+  await upsertUser({
+    openId: "guest_user",
+    name: "Guest Reviewer",
+    email: "guest@veritylens.local",
+    loginMethod: "guest",
+    role: "user",
+    lastSignedIn: new Date(),
+  });
+  const created = await getUserByOpenId("guest_user");
+  if (created) return created;
+  return {
+    id: 1,
+    openId: "guest_user",
+    name: "Guest Reviewer",
+    email: "guest@veritylens.local",
+    loginMethod: "guest",
+    role: "user",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
+  };
+}
+
 export async function createDocumentAnalysis(input: InsertDocumentAnalysis) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -60,15 +101,23 @@ export async function createDocumentAnalysis(input: InsertDocumentAnalysis) {
   return result[0];
 }
 
-export async function getDocumentAnalysisById(id: number, userId: number) {
+export async function getDocumentAnalysisById(id: number, userId?: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(documentAnalyses).where(eq(documentAnalyses.id, id)).limit(1);
-  return result[0]?.userId === userId ? result[0] : undefined;
+  const row = result[0];
+  if (!row) return undefined;
+  if (userId !== undefined && row.userId !== userId) {
+    return undefined;
+  }
+  return row;
 }
 
-export async function listDocumentAnalyses(userId: number) {
+export async function listDocumentAnalyses(userId?: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(documentAnalyses).where(eq(documentAnalyses.userId, userId)).orderBy(desc(documentAnalyses.createdAt));
+  if (userId !== undefined) {
+    return db.select().from(documentAnalyses).where(eq(documentAnalyses.userId, userId)).orderBy(desc(documentAnalyses.createdAt));
+  }
+  return db.select().from(documentAnalyses).orderBy(desc(documentAnalyses.createdAt)).limit(50);
 }
